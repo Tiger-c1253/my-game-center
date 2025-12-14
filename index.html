@@ -1,244 +1,66 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connect 4 (Local 2P)</title>
-    <style>
-        :root {
-            --bg-color: #1a1a2e;
-            --text: #ecf0f1;
-            /* Connect 4 Colors */
-            --c4-board: #0f3460;
-            --c4-board-shadow: #0a1f38;
-            --c4-red: #e74c3c;
-            --c4-yellow: #f1c40f;
-        }
-        body {
-            font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); color: var(--text);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-height: 100vh; margin: 0; user-select: none;
-        }
-        h1 { margin: 0 0 20px 0; font-weight: 800; letter-spacing: 2px; text-shadow: 0 0 10px rgba(233,69,96,0.5); }
-
-        /* ステータスカード */
-        #status-card {
-            background: rgba(255,255,255,0.05); padding: 10px 40px; border-radius: 50px;
-            margin-bottom: 25px; backdrop-filter: blur(10px); display: flex; align-items: center; gap: 15px;
-            border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        }
-        #turn-indicator { width: 20px; height: 20px; border-radius: 50%; box-shadow: 0 0 10px currentColor; transition: background-color 0.3s; }
-        #status-text { font-size: 1.2rem; font-weight: 600; letter-spacing: 1px; }
-
-        /* 盤面フレーム */
-        #board-frame {
-            background-color: var(--c4-board);
-            padding: 15px 15px 40px 15px; 
-            border-radius: 10px 10px 4px 4px;
-            box-shadow: 0 20px 0 var(--c4-board-shadow), 0 30px 50px rgba(0,0,0,0.5);
-            border: 2px solid #2c5e9e;
-        }
-
-        /* 盤面グリッド */
-        #board { 
-            display: grid; gap: 10px; 
-            grid-template-columns: repeat(7, 50px);
-            background-color: var(--c4-board);
-        }
-
-        /* セル（穴） */
-        .cell {
-            width: 50px; height: 50px; 
-            background-color: var(--bg-color); 
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center; cursor: pointer;
-            box-shadow: inset 0 0 15px rgba(0,0,0,0.8); 
-            position: relative; 
-            overflow: hidden;
-        }
-
-        /* 石（コマ） */
-        .disc {
-            width: 40px; height: 40px; border-radius: 50%; display: block;
-            box-shadow: inset -3px -3px 5px rgba(0,0,0,0.3), inset 2px 2px 5px rgba(255,255,255,0.3), 3px 3px 5px rgba(0,0,0,0.4);
-        }
-
-        /* 石の色定義 */
-        .red   { background: linear-gradient(45deg, var(--c4-red), #c0392b); }
-        .yellow{ background: linear-gradient(45deg, var(--c4-yellow), #f39c12); }
-
-        /* 落下アニメーション */
-        @keyframes drop {
-            0% { transform: translateY(-400px); opacity: 0; }
-            60% { transform: translateY(20px); opacity: 1; }
-            80% { transform: translateY(-10px); }
-            100% { transform: translateY(0); }
-        }
-        .falling { animation: drop 0.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
-
-        /* リセットボタン */
-        #reset-btn {
-            margin-top: 30px; padding: 10px 25px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-            color: #ccc; border-radius: 30px; cursor: pointer; transition: all 0.2s;
-        }
-        #reset-btn:hover { background: rgba(255,255,255,0.2); color: #fff; transform: scale(1.05); }
-
-        /* レスポンシブ対応 */
-        @media (max-width: 500px) {
-            #board { gap: 1vw !important; grid-template-columns: repeat(7, 12vw); }
-            .cell { width: 12vw; height: 12vw; }
-            .disc { width: 10vw; height: 10vw; }
-        }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online Game Test</title>
+<style>
+body {
+  font-family: sans-serif;
+  background: #2c3e50;
+  color: #ecf0f1;
+  text-align: center;
+  padding-top: 50px;
+}
+button {
+  font-size: 24px;
+  padding: 10px 30px;
+}
+</style>
 </head>
-<body onload="initializeGame()">
-    <h1>CONNECT 4 (2P Local)</h1>
-    
-    <div id="game-screen">
-        <div id="status-card">
-            <span id="turn-indicator"></span>
-            <span id="status-text">...</span>
-        </div>
-        <div id="board-frame">
-            <div id="board"></div>
-        </div>
-        <button id="reset-btn" onclick="initializeGame()">RESTART GAME</button>
-    </div>
+<body>
 
-    <script>
-        // === ローカル変数の宣言 ===
-        const COLS = 7;
-        const ROWS = 6;
-        let board = [];
-        let turn = 1; // 1: 赤 (Red), 2: 黄 (Yellow)
-        let winner = 0; // 0: ゲーム中, 1: 赤勝ち, 2: 黄勝ち
+<h1>オンライン同期テスト</h1>
+<button id="btn">+1</button>
+<p id="value">0</p>
 
-        // === 初期化処理 ===
-        function initializeGame() {
-            board = Array(COLS * ROWS).fill(0);
-            turn = 1;
-            winner = 0;
-            drawBoard();
-            updateStatus();
-        }
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-        // === 描画処理 ===
-        function drawBoard(diffIndex = -1) {
-            const boardEl = document.getElementById("board");
-            boardEl.innerHTML = "";
-            
-            board.forEach((cell, index) => {
-                const div = document.createElement("div");
-                div.className = "cell";
-                
-                // クリック可能にする
-                div.onclick = () => handleClick(index);
-                
-                if (cell !== 0) {
-                    const disc = document.createElement("div");
-                    disc.className = "disc";
-                    disc.classList.add(cell === 1 ? "red" : "yellow");
-                    
-                    // 新しく置かれた石に落下アニメーションを適用
-                    if (index === diffIndex) disc.classList.add('falling'); 
+const firebaseConfig = {
+  apiKey: "AIzaSyBqzjuOEB7P5n_gtSwDUtaMa_CbtgAIeUk",
+  authDomain: "online-game-572f5.firebaseapp.com",
+  databaseURL: "https://online-game-572f5-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "online-game-572f5",
+  storageBucket: "online-game-572f5.firebasestorage.app",
+  messagingSenderId: "199079474526",
+  appId: "1:199079474526:web:f7ffc6096d3173fb63cbcf"
+};
 
-                    div.appendChild(disc);
-                }
-                boardEl.appendChild(div);
-            });
-        }
-        
-        // === クリック処理 (ローカルゲームのメインロジック) ===
-        function handleClick(index) {
-            if (winner !== 0) return; // 決着済みなら操作不可
-            
-            let newBoard = [...board];
-            const result = playConnect4(newBoard, index, turn); // 石を落とす
-            
-            if (result.success) {
-                const targetIndex = result.index;
+// Firebase 初期化
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const auth = getAuth(app);
 
-                // 盤面とターンを更新
-                board = newBoard;
-                
-                // 勝敗判定
-                if (checkWinConnect4(board, turn)) {
-                    winner = turn;
-                } else {
-                    turn = turn === 1 ? 2 : 1; // ターン交代
-                }
-                
-                drawBoard(targetIndex); // 落下位置をアニメーション用に渡す
-                updateStatus();
-            }
-        }
+// 匿名ログイン
+await signInAnonymously(auth);
 
-        // === 石を実際にボードに落とすロジック ===
-        function playConnect4(board, index, color) {
-            const col = index % COLS; 
-            
-            for (let r = ROWS - 1; r >= 0; r--) {
-                const targetIdx = r * COLS + col;
-                if (board[targetIdx] === 0) {
-                    board[targetIdx] = color;
-                    return { success: true, index: targetIdx };
-                }
-            }
-            return { success: false }; 
-        }
+// データ参照
+const counterRef = ref(db, "counter");
 
-        // === 勝利判定ロジック ===
-        function checkWinConnect4(board, color) {
-            const directions = [1, COLS, COLS + 1, COLS - 1]; // 水平, 垂直, 右下斜め, 左下斜め
+// データ受信
+onValue(counterRef, (snapshot) => {
+  document.getElementById("value").innerText = snapshot.val() ?? 0;
+});
 
-            for (let i = 0; i < COLS * ROWS; i++) {
-                if (board[i] !== color) continue;
+// ボタン処理
+document.getElementById("btn").onclick = async () => {
+  const v = Number(document.getElementById("value").innerText);
+  await set(counterRef, v + 1);
+};
+</script>
 
-                for (let dir of directions) {
-                    let count = 1;
-                    for (let step = 1; step < 4; step++) {
-                        let next = i + dir * step;
-                        if (next < 0 || next >= COLS * ROWS) break;
-                        
-                        // 水平方向のチェックで、行をまたぐのを防止
-                        if (dir === 1 && Math.floor(i / COLS) !== Math.floor(next / COLS)) break;
-                        
-                        // 斜めチェックの際に、列を飛び越えるのを防止 (簡易)
-                        if (dir === COLS + 1 || dir === COLS - 1) {
-                            if (Math.abs(Math.floor(next / COLS) - Math.floor(i / COLS)) !== step) break;
-                        }
-
-                        if (board[next] === color) count++;
-                        else break;
-                    }
-                    if (count === 4) return true;
-                }
-            }
-            return false;
-        }
-
-        // === ステータス表示更新 ===
-        function updateStatus() {
-            const text = document.getElementById("status-text");
-            const indicator = document.getElementById("turn-indicator");
-            
-            if (winner !== 0) {
-                let winnerColor = winner === 1 ? "赤" : "黄";
-                let colorCode = winner === 1 ? var(--c4-red) : var(--c4-yellow);
-                text.innerText = `${winnerColor} の勝ちです！`;
-                indicator.style.backgroundColor = colorCode;
-                indicator.style.boxShadow = `0 0 10px ${colorCode}`;
-                return;
-            }
-
-            let colorName, colorCode;
-            colorName = turn === 1 ? "赤" : "黄";
-            colorCode = turn === 1 ? "var(--c4-red)" : "var(--c4-yellow)";
-            
-            text.innerText = `${colorName} の番です`;
-            indicator.style.backgroundColor = colorCode;
-            indicator.style.boxShadow = `0 0 10px ${colorCode}`;
-        }
-    </script>
 </body>
 </html>
