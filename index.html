@@ -3,53 +3,76 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Online Board Games</title>
+<title>Online Othello</title>
+
 <style>
-body{
-  margin:0; font-family:sans-serif; background:#2c3e50; color:#ecf0f1;
-  display:flex; flex-direction:column; align-items:center;
+body {
+  margin: 0;
+  background: #2c3e50;
+  color: #ecf0f1;
+  font-family: sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
 }
-h1{margin:15px 0}
-#menu button{
-  margin:5px; padding:10px 30px; font-size:18px; border-radius:30px;
+
+h1 { margin-bottom: 10px; }
+
+#status {
+  margin-bottom: 10px;
+  padding: 8px 20px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 20px;
 }
-#status{margin:10px}
-#board{
-  display:grid; gap:6px; background:#34495e; padding:10px; border-radius:10px;
+
+#board {
+  display: grid;
+  grid-template-columns: repeat(8, 45px);
+  gap: 4px;
 }
-.cell{
-  width:44px; height:44px; background:#27ae60;
-  display:flex; align-items:center; justify-content:center;
-  cursor:pointer; border-radius:6px;
+
+.cell {
+  width: 45px;
+  height: 45px;
+  background: #27ae60;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
-.connect4 .cell{background:#2980b9; border-radius:50%}
-.disc{
-  width:36px; height:36px; border-radius:50%;
+
+.cell.disabled {
+  cursor: default;
+  opacity: 0.6;
 }
-.black{background:#000}
-.white{background:#fff}
-.red{background:#e74c3c}
-.yellow{background:#f1c40f}
+
+.disc {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.black { background: black; }
+.white { background: white; }
 </style>
 </head>
+
 <body>
-
-<h1>ONLINE BOARD GAME</h1>
-
-<div id="menu">
-  <button onclick="startGame('othello')">オセロ</button>
-  <button onclick="startGame('connect4')">コネクト4</button>
-</div>
-
-<div id="status">待機中...</div>
+<h1>ONLINE OTHELLO</h1>
+<div id="status">接続中...</div>
 <div id="board"></div>
 
 <script type="module">
+/* ===== Firebase ===== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
-import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
+import { getDatabase, ref, set, onValue, update, onDisconnect, serverTimestamp }
+from "https://www.gstatic.com/firebasejs/12.6.0/firebase-database.js";
+import { getAuth, signInAnonymously }
+from "https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js";
 
-/* Firebase設定（あなたのもの） */
 const firebaseConfig = {
   apiKey: "AIzaSyBqzjuOEB7P5n_gtSwDUtaMa_CbtgAIeUk",
   authDomain: "online-game-572f5.firebaseapp.com",
@@ -63,122 +86,123 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
-await signInAnonymously(auth);
 
-const myId = auth.currentUser.uid;
+/* ===== State ===== */
+let myId = null;
+let myColor = 0; // 1=黒 2=白
 
-const refs = {
-  game: ref(db,"game"),
-  board: ref(db,"board"),
-  turn: ref(db,"turn"),
-  players: ref(db,"players")
-};
-
-let gameType=null, board=[], turn=1, myColor=0;
-
-/* プレイヤー割当 */
-onValue(refs.players,s=>{
-  const p=s.val()||{};
-  if(!p.black) set(ref(db,"players/black"),myId);
-  else if(!p.white && p.black!==myId) set(ref(db,"players/white"),myId);
-  myColor = p.black===myId?1:p.white===myId?2:0;
+/* ===== Auth ===== */
+signInAnonymously(auth).then(result => {
+  myId = result.user.uid;
+  setupPresence();
+  claimSeat();
 });
 
-/* 状態同期 */
-onValue(refs.game,s=>{gameType=s.val(); draw();});
-onValue(refs.board,s=>{board=s.val()||[]; draw();});
-onValue(refs.turn,s=>{turn=s.val(); drawStatus();});
+/* ===== Presence ===== */
+function setupPresence() {
+  const p = ref(db, "presence/" + myId);
+  set(p, { online: true, lastSeen: serverTimestamp() });
+  onDisconnect(p).remove();
+  setInterval(() => {
+    set(p, { online: true, lastSeen: serverTimestamp() });
+  }, 10000);
+}
 
-window.startGame=(type)=>{
-  if(myColor!==1) return;
-  if(type==="othello"){
-    board=Array(64).fill(0);
-    board[27]=2; board[28]=1; board[35]=1; board[36]=2;
-    set(refs.turn,1);
-  }else{
-    board=Array(42).fill(0);
-    set(refs.turn,1);
-  }
-  set(refs.game,type);
-  set(refs.board,board);
-};
-
-function draw(){
-  const b=document.getElementById("board");
-  b.innerHTML="";
-  if(!gameType) return;
-  if(gameType==="othello"){
-    b.style.gridTemplateColumns="repeat(8,44px)";
-    b.className="";
-  }else{
-    b.style.gridTemplateColumns="repeat(7,44px)";
-    b.className="connect4";
-  }
-  board.forEach((v,i)=>{
-    const c=document.createElement("div");
-    c.className="cell";
-    c.onclick=()=>clickCell(i);
-    if(v){
-      const d=document.createElement("div");
-      d.className="disc "+(
-        gameType==="othello"?(v===1?"black":"white"):(v===1?"red":"yellow")
-      );
-      c.appendChild(d);
-    }
-    b.appendChild(c);
+/* ===== Seat ===== */
+function claimSeat() {
+  const seatsRef = ref(db, "seats");
+  onValue(seatsRef, snap => {
+    const seats = snap.val() || {};
+    if (seats.black === myId) myColor = 1;
+    else if (seats.white === myId) myColor = 2;
+    else if (!seats.black) set(ref(db, "seats/black"), myId);
+    else if (!seats.white) set(ref(db, "seats/white"), myId);
   });
-  drawStatus();
 }
 
-function drawStatus(){
-  const s=document.getElementById("status");
-  if(!gameType){s.innerText="ゲーム選択中";return;}
-  if(myColor===0){s.innerText="観戦中";return;}
-  s.innerText=(turn===myColor?"あなたの番":"相手の番");
+/* ===== Init Game ===== */
+const gameRef = ref(db, "game");
+onValue(gameRef, snap => {
+  if (!snap.exists()) initGame();
+});
+
+function initGame() {
+  const board = Array(64).fill(0);
+  board[27]=2; board[28]=1;
+  board[35]=1; board[36]=2;
+  set(gameRef, { board, turn: 1 });
 }
 
-function clickCell(i){
-  if(myColor!==turn) return;
-  const newBoard=[...board];
+/* ===== Render ===== */
+const boardEl = document.getElementById("board");
+const statusEl = document.getElementById("status");
+
+onValue(gameRef, snap => {
+  const data = snap.val();
+  if (!data) return;
+  render(data.board, data.turn);
+});
+
+function render(board, turn) {
+  boardEl.innerHTML = "";
+  statusEl.textContent =
+    (myColor === turn ? "あなたの番" : "相手の番") +
+    ` (${turn === 1 ? "黒" : "白"})`;
+
+  board.forEach((v,i) => {
+    const cell = document.createElement("div");
+    cell.className = "cell";
+    if (v !== 0 || myColor !== turn) cell.classList.add("disabled");
+    cell.onclick = () => clickCell(i);
+    if (v !== 0) {
+      const d = document.createElement("div");
+      d.className = "disc " + (v===1?"black":"white");
+      cell.appendChild(d);
+    }
+    boardEl.appendChild(cell);
+  });
+}
+
+/* ===== Click ===== */
+function clickCell(i) {
+  onValue(gameRef, snap => {
+    const { board, turn } = snap.val();
+    if (turn !== myColor) return;
+    const newBoard = [...board];
+    if (place(newBoard, i, turn)) {
+      update(gameRef, {
+        board: newBoard,
+        turn: turn === 1 ? 2 : 1
+      });
+    }
+  }, { onlyOnce:true });
+}
+
+/* ===== Othello Logic ===== */
+function place(board, idx, color) {
+  if (board[idx] !== 0) return false;
+  const opp = color===1?2:1;
+  const dirs=[-9,-8,-7,-1,1,7,8,9];
   let ok=false;
-  if(gameType==="othello") ok=placeOthello(newBoard,i,myColor);
-  else ok=placeConnect4(newBoard,i,myColor);
-  if(ok){
-    set(refs.board,newBoard);
-    set(refs.turn,myColor===1?2:1);
-  }
-}
-
-/* オセロ */
-function placeOthello(b,i,c){
-  if(b[i]!==0) return false;
-  const o=c===1?2:1;
-  const d=[-9,-8,-7,-1,1,7,8,9];
-  let f=false;
-  for(const k of d){
-    let p=[],n=i+k;
-    while(n>=0&&n<64){
-      const r=Math.floor(n/8),c2=n%8;
-      const pr=Math.floor((n-k)/8),pc=(n-k)%8;
-      if(Math.abs(r-pr)>1||Math.abs(c2-pc)>1) break;
-      if(b[n]===o) p.push(n);
-      else if(b[n]===c){if(p.length){p.forEach(x=>b[x]=c);f=true;}break;}
-      else break;
-      n+=k;
+  for (let d of dirs) {
+    let path=[];
+    let c=idx+d;
+    while (c>=0 && c<64) {
+      const x=c%8, px=(c-d)%8;
+      if (Math.abs(x-px)>1) break;
+      if (board[c]===opp) path.push(c);
+      else if (board[c]===color) {
+        if (path.length) {
+          path.forEach(p=>board[p]=color);
+          ok=true;
+        }
+        break;
+      } else break;
+      c+=d;
     }
   }
-  if(f) b[i]=c;
-  return f;
-}
-
-/* コネクト4 */
-function placeConnect4(b,i,c){
-  const col=i%7;
-  for(let r=5;r>=0;r--){
-    const n=r*7+col;
-    if(b[n]===0){b[n]=c;return true;}
-  }
-  return false;
+  if (ok) board[idx]=color;
+  return ok;
 }
 </script>
 </body>
